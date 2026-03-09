@@ -17,7 +17,7 @@ const pool = new Pool({
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
 
-  // ❌ VULNERABLE
+  // ❌ VULNERABLE (gardé exprès pour le TP)
   const query = `
     SELECT * FROM users 
     WHERE username = '${username}' 
@@ -28,16 +28,109 @@ app.post("/login", async (req, res) => {
     const result = await pool.query(query);
 
     if (result.rows.length > 0) {
-      res.json({ message: "Login success" });
-    } else {
-      res.json({ message: "Login failed" });
+      // Interface après login
+      return res.redirect(`/dashboard?username=${encodeURIComponent(username)}`);
     }
+
+    return res.redirect(`/login?error=${encodeURIComponent("Identifiants incorrects")} `);
   } catch (err) {
-    res.status(500).send(err.message);
+    return res.status(500).send(err.message);
   }
 });
 
+app.get("/dashboard", (req, res) => {
+  const username = req.query.username ? String(req.query.username) : "";
+  const safeUsername = username ? escapeHtml(username) : "utilisateur";
+
+  res.send(`<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard</title>
+  <style>
+    :root{
+      --bg:#0b1020;
+      --card:#111a33;
+      --text:#e8ecff;
+      --muted:#aab2d5;
+      --border:#2a3566;
+      --accent:#7aa2ff;
+      --danger:#ff6b6b;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+      background: radial-gradient(1200px 600px at 20% 0%, #121b3a 0%, var(--bg) 60%);
+      color:var(--text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    }
+    .wrap{ width:min(720px, 100%); }
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+      border:1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      backdrop-filter: blur(6px);
+    }
+    h1{ margin:0 0 10px; font-size: 22px; }
+    p{ margin:0 0 12px; color: var(--muted); }
+    .mono{ font-family: var(--mono); }
+    .actions{ display:flex; gap:10px; flex-wrap:wrap; margin-top: 14px; }
+    a.btn{
+      display:inline-block;
+      padding:10px 12px;
+      border:1px solid var(--border);
+      border-radius: 10px;
+      background: #1a2a55;
+      color: var(--text);
+      font-weight: 650;
+      text-decoration:none;
+    }
+    a.btn:hover{ border-color: var(--accent); }
+    .note{
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border:1px solid rgba(255,107,107,0.35);
+      background: rgba(0,0,0,0.25);
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Bienvenue, <span class="mono">${safeUsername}</span></h1>
+      <p>Tu es connecté. Ceci est l'interface affichée après le login.</p>
+
+      <div class="actions">
+        <a class="btn" href="/login">Se déconnecter (retour login)</a>
+      </div>
+
+      <div class="note">
+        <strong>Note TP sécurité :</strong>
+        cette app est volontairement vulnérable (SQL injection) — n'utilise pas ça en production.
+      </div>
+    </div>
+  </div>
+</body>
+</html>`);
+});
+
 app.get("/login", (req, res) => {
+  const error = req.query.error ? String(req.query.error) : "";
+
+  const banner = error
+    ? `<div class="alert fail"><strong>Erreur:</strong> <span class="mono">${escapeHtml(error)}</span></div>`
+    : `<div class="alert warn">Astuce: essaie avec un compte existant dans ta table <span class="mono">users</span>.</div>`;
+
   res.send(`<!DOCTYPE html>
 <html lang="fr">
 <head>
